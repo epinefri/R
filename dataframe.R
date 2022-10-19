@@ -1,0 +1,5 @@
+names <- c("Ian", "Jan", "Dan", "Ben")
+age <- c(25, 67, 45, 23)
+people <- data.frame(names, age)
+mutate(people, age_in_20 = age + 20)
+head(people)
