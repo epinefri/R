@@ -50,7 +50,6 @@ heartrate_seconds <- read_csv("data/selected/heartrate_seconds.csv", show_col_ty
 
 sleepDay <- read_csv("data/selected/sleepDay.csv", show_col_types = FALSE)
 
-
 weightLogInfo <- read_csv("data/selected/weightLogInfo.csv", show_col_types = FALSE)
 
 ```
@@ -75,21 +74,63 @@ glimpse(weightLogInfo)
 
 ### Data cleaning
 
+Check values from sleepDay table
 ```{r}
+# sleepDay %>% 
+  #group_by(Id) %>% 
+  #summarize(count(SleepDay))
 
+table(sleepDay$Id)
 ```
+9 out of 24 individuals have under 10 inputs.
 
 ## Data analysis
 
-Created a new data frame to summarize average values for each Id.
+Created a new data frame to summarize average values for each Id:
+
+* Activity Summary: mean total steps, distance, sedentary minutes and calorie intake for each Id
+```{r}
+ActivitySummary <- dailyActivity %>% 
+  group_by(Id) %>% 
+  summarize(meanTotalSteps = mean(TotalSteps),
+            meanTotalDistance = mean(TotalDistance),
+            meanSedentaryMinutes = mean(SedentaryMinutes),
+            meanCalorieIntake = mean(Calories))
+```
+
+* Heart rate summary: mean, min, max, median value of heart rate
+```{r}
+HeartrateSummary <- heartrate_seconds %>% 
+  group_by(Id) %>% 
+  summarize(meanBPM = mean(Value),
+            minBPM = min(Value),
+            maxBPM = max(Value),
+            medBPM = median(Value))
+```
+
+* Sleep summary: average minutes of sleep, average minutes to fall asleep
+```{r}
+SleepSummary <- sleepDay %>% 
+  mutate(fallAsleep = TotalTimeInBed - TotalMinutesAsleep) %>% 
+  group_by(Id) %>% 
+  summarize(meanSleepTime = mean(TotalMinutesAsleep),
+            meanFallAsleep = mean(fallAsleep))
+```
 
 ```{r}
 
 ```
 
+
+* Observations:
+  * Activity data was collected for 33 individual ids (although the number of participants is supposed to be thirty)
+  * Heart rate data was collected for 14 individuals (could give unreliable analysis results)
+  * Sleep data was collected for 24 individuals 
+  
+  
 ## Visualization
 
-#### The relationship between
+#### The relationship between 
 
 ```{r}
 ggplot(data = dailyActivity, mapping = aes(x = Calories, y = SedentaryMinutes)) + geom_point()
