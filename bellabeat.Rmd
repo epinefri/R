@@ -50,7 +50,6 @@ heartrate_seconds <- read_csv("data/selected/heartrate_seconds.csv", show_col_ty
 
 sleepDay <- read_csv("data/selected/sleepDay.csv", show_col_types = FALSE)
 
-
 weightLogInfo <- read_csv("data/selected/weightLogInfo.csv", show_col_types = FALSE)
 
 ```
@@ -72,24 +71,103 @@ glimpse(sleepDay)
 ```{r}
 glimpse(weightLogInfo)
 ```
-
+ * only two entries of fat percentage, insufficient for analysis
+ 
 ### Data cleaning
 
+Check the number of submitted values from SleepDay table
 ```{r}
+table(sleepDay$"Id")
+```
+15 out of 24 individuals have more than 10 recorded days; 
+Create a new table to only use data from those 15 users:
 
+```{r}
+# create a table containing only ids of users with more than 10 entries
+
+SleepSummaryIds <- sleepDay %>% 
+  group_by(Id) %>% 
+  count(unique("Id"), sort = TRUE) %>% 
+  filter(n > 10)
+
+as_tibble(SleepSummaryIds)
 ```
 
+Join the ids table with the sleepDay table:
+```{r}
+SleepFiltered <- sleepDay %>% right_join(SleepSummaryIds, by="Id")
+as_tibble(SleepFiltered)
+  
+```
+
+Check the weightLogInfo number of inputs:
+```{r}
+table(weightLogInfo$Id)
+```
+  * Only 8 users submitted weight data, and only 2 of them have more than 5 entries.
+  
 ## Data analysis
 
-Created a new data frame to summarize average values for each Id.
+Created a new data frame to summarize average values for each Id:
 
+* Activity Summary: mean total steps, distance, sedentary minutes and calorie intake for each Id
 ```{r}
-
+ActivitySummary <- dailyActivity %>% 
+  group_by(Id) %>% 
+  summarize(meanTotalSteps = mean(TotalSteps),
+            meanTotalDistance = mean(TotalDistance),
+            meanSedentaryMinutes = mean(SedentaryMinutes),
+            meanCalorieIntake = mean(Calories))
 ```
 
+* Heart rate summary: mean, min, max, median value of heart rate
+```{r}
+HeartrateSummary <- heartrate_seconds %>% 
+  group_by(Id) %>% 
+  summarize(meanBPM = mean(Value),
+            minBPM = min(Value),
+            maxBPM = max(Value),
+            medBPM = median(Value))
+```
+
+* Sleep summary: average minutes of sleep, average time spent in bed
+```{r}
+SleepSummary <- SleepFiltered %>% 
+  group_by(Id) %>% 
+  summarize(meanSleepTime = mean(TotalMinutesAsleep),
+            meanTimeInBed = mean(TotalTimeInBed))
+```
+
+*Weight summary: average weight, BMI
+```{r}
+WeightSummary <- weightLogInfo %>% 
+  group_by(Id) %>% 
+  summarize(meanWeightKg = mean(WeightKg),
+            meanBMI = mean(BMI))
+```
+
+
+Drop unnecessary columns (only keep summaries)
+```{r}
+remove(dailyActivity);
+remove(heartrate_seconds);
+remove(sleepDay);
+remove(SleepFiltered); 
+remove(SleepSummaryIds); 
+remove(weightLogInfo);
+```
+
+
+* Observations:
+  * Activity data was collected for 33 individual ids (although the number of participants is said to be thirty)
+  * Heart rate data was collected for 14 individuals
+  * Sleep data was collected for 24 individuals, of which 15 were selected for analysis (having more than 10 unique entries)
+  * Weight data was collected for 8 individuals
+  
+  
 ## Visualization
 
-#### The relationship between
+#### The relationship between 
 
 ```{r}
 ggplot(data = dailyActivity, mapping = aes(x = Calories, y = SedentaryMinutes)) + geom_point()
