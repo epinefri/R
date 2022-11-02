@@ -36,6 +36,7 @@ Bellabeat is a company that manufactures health-focused smart devices. The objec
 
 ```{r}
 library(tidyverse)
+library(lubridate)
 library(ggplot2)
 ```
 
@@ -52,27 +53,32 @@ sleepDay <- read_csv("data/selected/sleepDay.csv", show_col_types = FALSE)
 
 weightLogInfo <- read_csv("data/selected/weightLogInfo.csv", show_col_types = FALSE)
 
+hrCalories <- read_csv("data/selected/hourlyCalories_merged.csv", show_col_types = FALSE)
+
+hrIntensity <- read_csv("data/selected/hourlyIntensities_merged.csv", show_col_types = FALSE)
+
+hrSteps <- read_csv("data/selected/hourlySteps_merged.csv", show_col_types = FALSE)
 ```
 
 Preview:
 
 ```{r}
-glimpse(dailyActivity)
+colnames(dailyActivity)
 ```
 
 ```{r}
-glimpse(heartrate_seconds)
+colnames(heartrate_seconds)
 ```
 
 ```{r}
-glimpse(sleepDay)
+colnames(sleepDay)
 ```
 
 ```{r}
-glimpse(weightLogInfo)
+colnames(weightLogInfo)
 ```
- * only two entries of fat percentage, insufficient for analysis
  
+
 ### Data cleaning
 
 Check the number of submitted values from SleepDay table
@@ -106,18 +112,47 @@ table(weightLogInfo$Id)
 ```
   * Only 8 users submitted weight data, and only 2 of them have more than 5 entries.
   
+Add a Date column to SleepFiltered and dailyActivity
+```{r}
+# SleepFiltered
+SleepFiltered$SleepDay <- mdy_hms(SleepFiltered$SleepDay)
+SleepFiltered$Date <- as_date(SleepFiltered$SleepDay)
+
+# dailyActivity
+dailyActivity$ActivityDate <- mdy(dailyActivity$ActivityDate)
+dailyActivity$Date <- as_date(dailyActivity$ActivityDate)
+
+```
+
+Add a hour column to hrIntensity, hrCalories, hrSteps
+```{r}
+# hrIntensity
+hrIntensity$ActivityHour <- mdy_hms(hrIntensity$ActivityHour) 
+hrIntensity$Hour <- hms::as_hms(hrIntensity$ActivityHour)
+
+# hrCalories
+hrCalories$ActivityHour <- mdy_hms(hrCalories$ActivityHour) 
+hrCalories$Hour <- hms::as_hms(hrCalories$ActivityHour)
+
+# hrSteps
+hrSteps$ActivityHour <- mdy_hms(hrSteps$ActivityHour) 
+hrSteps$Hour <- hms::as_hms(hrSteps$ActivityHour)
+
+```
+
+  
 ## Data analysis
 
 Created a new data frame to summarize average values for each Id:
 
-* Activity Summary: mean total steps, distance, sedentary minutes and calorie intake for each Id
+* Activity Summary: mean total steps, distance, sedentary minutes and calories for each Id
 ```{r}
 ActivitySummary <- dailyActivity %>% 
   group_by(Id) %>% 
   summarize(meanTotalSteps = mean(TotalSteps),
             meanTotalDistance = mean(TotalDistance),
             meanSedentaryMinutes = mean(SedentaryMinutes),
-            meanCalorieIntake = mean(Calories))
+            meanCalories = mean(Calories))
 ```
 
 * Heart rate summary: mean, min, max, median value of heart rate
@@ -146,15 +181,23 @@ WeightSummary <- weightLogInfo %>%
             meanBMI = mean(BMI))
 ```
 
-
-Drop unnecessary columns (only keep summaries)
+Merge tables, resulting in a table that summarizes data for each person.
 ```{r}
-remove(dailyActivity);
-remove(heartrate_seconds);
-remove(sleepDay);
-remove(SleepFiltered); 
+Summary <- ActivitySummary %>% 
+  left_join(HeartrateSummary, by = "Id") %>% 
+  left_join(SleepSummary, by = "Id") %>% 
+  left_join(WeightSummary, by = "Id")
+
+as_tibble(Summary)
+```
+
+Remove unnecessary columns 
+```{r}
+remove(ActivitySummary);
+remove(HeartrateSummary);
+remove(SleepSummary); 
 remove(SleepSummaryIds); 
-remove(weightLogInfo);
+remove(WeightSummary);
 ```
 
 
@@ -162,13 +205,43 @@ remove(weightLogInfo);
   * Activity data was collected for 33 individual ids (although the number of participants is said to be thirty)
   * Heart rate data was collected for 14 individuals
   * Sleep data was collected for 24 individuals, of which 15 were selected for analysis (having more than 10 unique entries)
-  * Weight data was collected for 8 individuals
-  
+  * Weight data was collected for 8 individuals. Not enough entries per individual to analyse weight loss or BMI changes. Also, the table contains only two entries of fat percentage, insufficient for analysis
+
   
 ## Visualization
 
-#### The relationship between 
+```{r}
+dailyActivity %>% 
+  ggplot(mapping = aes(x = TotalSteps, y = Calories)) + geom_point() + geom_smooth(method=lm, se=FALSE) + labs(title = "Total number of steps and calories burned", subtitle = "The more steps a person takes, the more calories they burn.", x = "Total steps")
+```
+
 
 ```{r}
-ggplot(data = dailyActivity, mapping = aes(x = Calories, y = SedentaryMinutes)) + geom_point()
+hrCalories %>% 
+  inner_join(hrIntensity, by = c("Id", "ActivityHour")) %>% 
+  ggplot(mapping = aes(x = AverageIntensity, y = Calories)) + geom_point() + geom_smooth(method=lm, se=FALSE) + labs(title = "The average activity intensity and calories", subtitle = "Higher activity levels corelate with more calories burnt. Most users have a low activity level.", x = "Average intensity")
 ```
+
+
+```{r}
+dailyActivity %>% inner_join(SleepFiltered, by = c("Id", "Date")) %>% 
+  ggplot(mapping = aes(x = SedentaryMinutes, y = TotalMinutesAsleep)) + geom_point() + geom_smooth(method=lm, se=FALSE) + labs(title = "Sedentary time and duration of sleep", subtitle = "Sedentarism negatively impacts the quantity of sleep.", x = "Total sedentary minutes", y = "Total minutes asleep")
+```
+
+
+```{r}
+hrIntensity %>% 
+  ggplot(mapping = aes(x = Hour, y = AverageIntensity)) + geom_bar(stat='identity') + labs(title = "Activity intensity by the hour", y = "Average activity intensity")
+```
+
+
+
+
+
+
+
+
+
+
+
+
